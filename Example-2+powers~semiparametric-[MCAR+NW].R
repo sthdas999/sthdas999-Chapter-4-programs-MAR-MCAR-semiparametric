@@ -47,25 +47,115 @@ z = runif(n, 0, 1) ## generation of 100 i.i.d. values on parametric covariate Z 
 
 mx = 0.5*x^2 - x^3  ## regression function ##
 
-bt = 2 ## initial value of parameter beta ##
+beta = 2 ## initial value of parameter beta ##
 
-y = z*bt + mx + e  ## generation of responses under H0 ##
+y = z*beta + mx + e  ## generation of responses under H0 ##
 
 y.fix = y ## fixed original n observations on Y ##
 
 h = 0.9 * sd(x) * (n^(-1/5))  ## bandwidth for estimation of regression function ##
 
-## estimation of beta to be added in the semiparametric programs ##
+## Now, n.hat number of observations on Y are to be made missing through MCAR technique ##
+
+count.1 = sample(1:n,n.hat,replace = F)  ## randomly picking n.hat numbers from {1,...,n}
+
+y.miss = c()  ## the Y-values at the count.1 digited places are defined as NA's ##
+for(i in 1:n)
+{
+  if(i %in% count.1)
+  {
+    y.miss[i] = NA
+  }
+  else
+  {
+    y.miss[i] = y[i]
+  }
+}
+
+y.dash = y.miss[-c(count.1)]  ## Y-observations after removal of NA values from y.incomplete ##
+
+x.dash = x[-c(count.1)]  ## X-observations corresponding to y.dash ##
+
+z.dash = z[-c(count.1)]  ## Z-observations corresponding to (x.dash,y.dash) ##
+
+## estimation of beta based on non-missing observations ##
 
 k<- function(u)  ## definition of epanechnikov kernel ##
 {
   return((3/4)*(1-u^2)*(abs(u)<=1))
 }
 
+gy.dash.hat<- function(t)  ## estimation of gy.hat = regression function of Y on X ##
+{
+  u<- (x.dash-t)/h
+  m<- k(u)*y.dash
+  if(sum(k(u)!=0))
+  {
+    return((sum(m)/sum(k(u))))
+  }
+  else
+  {
+    return(0)
+  }
+}
+
+gx.dash.hat<- function(t)  ## estimation of gy.hat = regression function of Y on Z ##
+{
+  u<- (x.dash-t)/h
+  m<- k(u)*z.dash
+  if(sum(k(u)!=0))
+  {
+    return((sum(m)/sum(k(u))))
+  }
+  else
+  {
+    return(0)
+  }
+}
+
+ex.dash.hat<- c()  ## estimation of error in the regression function of Y on Z ##
+ey.dash.hat<- c()  ## estimation of error in the regression function of Y on X ##
+for(i in 1:n.hat)
+{
+  ex.dash.hat[i] = z.dash[i] - gx.dash.hat(x.dash[i])
+  ey.dash.hat[i] = y.dash[i] - gy.dash.hat(x.dash[i])
+}
+beta.hat.u = sum(ex.dash.hat*ey.dash.hat) / sum(ex.dash.hat^2)  ## estimation of beta
+beta.hat.u
+
+y.dash = y.dash-z.dash*beta.hat.u ## transformed non-missing response ##
+
+## Now, to estimate the unknown regression function using NW method at x.dash in first step as follows. ##
+
+ms.hat<- c()  ## estimated regression curve m(X) based on X and available Y-observations at primary step ##
+
+for(i in 1:length(y.dash))
+{
+  ms.hat[i]<- NW.WtKernel(x.dash, y.dash, x.dash[i],Kernel = "Ep", Bndwdth = h)
+}
+
+x.miss = x[count.1]  ## X-observations corresponding to missing Y-values ##
+
+m.hat.miss = c()  ## estimation of regression function at the missing observations of Y ##
+for(i in 1:length(x.miss))
+{
+  m.hat.miss[i] = NW.WtKernel(x.dash, y.dash, x.miss[i], Kernel = "Ep", Bndwdth = h)
+}
+
+m.hat.miss.arranged<- c()  
+for(i in 1:length(count.1))
+{
+  m.hat.miss.arranged[i]<- m.hat.miss[rank(count.1)==i]
+}
+
+y.complete<- replace(y.miss,which(is.na(y.miss)==T),m.hat.miss.arranged)   ## complete data on Y after imputation ##
+
+## Now, estimation of beta based on the complete semiparametric programs ##
+
 gy.hat<- function(t)  ## estimation of gy.hat = regression function of Y on X ##
 {
   u<- (x-t)/h
-  m<- k(u)*y
+  m<- k(u)*y.complete
   if(sum(k(u)!=0))
   {
     return((sum(m)/sum(k(u))))
@@ -95,62 +185,17 @@ ey.hat<- c()  ## estimation of error in the regression function of Y on X ##
 for(i in 1:n)
 {
   ex.hat[i] = z[i] - gx.hat(x[i])
-  ey.hat[i] = y[i] - gy.hat(x[i])
+  ey.hat[i] = y.complete[i] - gy.hat(x[i])
 }
-p<- ex.hat*ey.hat
 
-beta.hat = sum(p) / sum(ex.hat^2)  ## estimation of beta
+beta.hat = sum(ex.hat*ey.hat) / sum(ex.hat^2)  ## estimation of beta
 beta.hat
 
-y = y-z*beta.hat ## transformed non-missing response ##
+y.complete = y.complete-z*beta.hat ## transformed non-missing response ##
 
-## Now, n.hat number of observations on Y are to be made missing through MCAR technique ##
+estimated.beta.values = c(beta,beta.hat.u,beta.hat)
 
-count.1 = sample(1:n,n.hat,replace = F)  ## randomly picking n.hat numbers from {1,...,n}
-
-y.miss = c()  ## the Y-values at the count.1 digited places are defined as NA's ##
-for(i in 1:n)
-{
-  if(i %in% count.1)
-  {
-    y.miss[i] = NA
-  }
-  else
-  {
-    y.miss[i] = y[i]
-  }
-}
-
-y.dash = y.miss[-c(count.1)]  ## Y-observations after removal of NA values from y.incomplete ##
-
-x.dash = x[-c(count.1)]  ## X-observations corresponding to y.dash ##
-
-z.dash = z[-c(count.1)]  ## Z-observations corresponding to (x.dash,y.dash) ##
-
-## Now, to estimate the unknown regression function using NW method at x.dash in first step as follows. ##
-
-ms.hat<- c()  ## estimated regression curve m(X) based on X and available Y-observations at primary step ##
-
-for(i in 1:length(y.dash))
-{
-  ms.hat[i]<- NW.WtKernel(x.dash, y.dash, x.dash[i],Kernel = "Ep", Bndwdth = h)
-}
-
-x.miss = x[count.1]  ## X-observations corresponding to missing Y-values ##
-
-m.hat.miss = c()  ## estimation of regression function at the missing observations of Y ##
-for(i in 1:length(x.miss))
-{
-  m.hat.miss[i] = NW.WtKernel(x.dash, y.dash, x.miss[i], Kernel = "Ep", Bndwdth = h)
-}
-
-m.hat.miss.arranged<- c()  
-for(i in 1:length(count.1))
-{
-  m.hat.miss.arranged[i]<- m.hat.miss[rank(count.1)==i]
-}
-
-y.complete<- replace(y.miss,which(is.na(y.miss)==T),m.hat.miss.arranged)   ## complete data on Y after imputation ##
+estimated.beta.values
 
 ml.hat<- c()  ## estimated regression curve m(X) based on full set of observations on (X,Y) at second step ##
 

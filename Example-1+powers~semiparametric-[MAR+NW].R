@@ -19,7 +19,7 @@ library(VGAM)
 
 ## Asymptotic Power Study of 6 test statistics under semiparametric regression ##
 
-## Missing Completely at Random (MAR) & NW method of estimation of m(X) ##
+## Missing at Random (MAR) & NW method of estimation of m(X) ##
 
 ## Ex - 1 : X~N(0,1) and e|X=x~N(0,(1+5x)/100) ##
 
@@ -33,7 +33,7 @@ n1= 5 ## number of finite samples to approximate the weighted sum of chi-squares
 
 gm = seq(0,10,1) ## values of the mixing parameter gamma ##
 
-pr = 0.1 ## proportion of missingness of Y-observations to be considered ##
+pr = 0.05 ## proportion of missingness of Y-observations to be considered ##
 
 n.hat = n*pr ## number of missing Y-values ##
 
