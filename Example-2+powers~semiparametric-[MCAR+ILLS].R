@@ -47,60 +47,13 @@ z = runif(n, 0, 1) ## generation of 100 i.i.d. values on parametric covariate Z 
 
 mx = 0.5*x^2 - x^3  ## regression function ##
 
-bt = 2 ## initial value of parameter beta ##
+beta = 2 ## initial value of parameter beta ##
 
-y = z*bt + mx + e  ## generation of responses under H0 ##
+y = z*beta + mx + e  ## generation of responses under H0 ##
 
 y.fix = y ## fixed original n observations on Y ##
 
 h = 0.9 * sd(x) * (n^(-1/5))  ## bandwidth for estimation of regression function ##
-
-## estimation of beta to be added in the semiparametric programs ##
-
-k<- function(u)  ## definition of epanechnikov kernel ##
-{
-  return((3/4)*(1-u^2)*(abs(u)<=1))
-}
-
-gy.hat<- function(t)  ## estimation of gy.hat = regression function of Y on X ##
-{
-  u<- (x-t)/h
-  m<- k(u)*y
-  if(sum(k(u)!=0))
-  {
-    return((sum(m)/sum(k(u))))
-  }
-  else
-  {
-    return(0)
-  }
-}
-
-gx.hat<- function(t)  ## estimation of gy.hat = regression function of Y on Z ##
-{
-  u<- (x-t)/h
-  m<- k(u)*z
-  if(sum(k(u)!=0))
-  {
-    return((sum(m)/sum(k(u))))
-  }
-  else
-  {
-    return(0)
-  }
-}
-
-ex.hat<- c()  ## estimation of error in the regression function of Y on Z ##
-ey.hat<- c()  ## estimation of error in the regression function of Y on X ##
-for(i in 1:n)
-{
-  ex.hat[i] = z[i] - gx.hat(x[i])
-  ey.hat[i] = y[i] - gy.hat(x[i])
-}
-p<- ex.hat*ey.hat
-
-beta.hat = sum(p) / sum(ex.hat^2)  ## estimation of beta
-beta.hat
 
 ## Now, n.hat number of observations on Y are to be made missing through MCAR technique ##
 
@@ -124,6 +77,53 @@ y.dash = y.miss[-c(count.1)]  ## Y-observations after removal of NA values from 
 x.dash = x[-c(count.1)]  ## X-observations corresponding to y.dash ##
 
 z.dash = z[-c(count.1)]  ## Z-observations corresponding to (x.dash,y.dash) ##
+
+## estimation of beta based on non-missing observations ##
+
+k<- function(u)  ## definition of epanechnikov kernel ##
+{
+  return((3/4)*(1-u^2)*(abs(u)<=1))
+}
+
+gy.dash.hat<- function(t)  ## estimation of gy.hat = regression function of Y on X ##
+{
+  u<- (x.dash-t)/h
+  m<- k(u)*y.dash
+  if(sum(k(u)!=0))
+  {
+    return((sum(m)/sum(k(u))))
+  }
+  else
+  {
+    return(0)
+  }
+}
+
+gx.dash.hat<- function(t)  ## estimation of gy.hat = regression function of Y on Z ##
+{
+  u<- (x.dash-t)/h
+  m<- k(u)*z.dash
+  if(sum(k(u)!=0))
+  {
+    return((sum(m)/sum(k(u))))
+  }
+  else
+  {
+    return(0)
+  }
+}
+
+ex.dash.hat<- c()  ## estimation of error in the regression function of Y on Z ##
+ey.dash.hat<- c()  ## estimation of error in the regression function of Y on X ##
+for(i in 1:n.hat)
+{
+  ex.dash.hat[i] = z.dash[i] - gx.dash.hat(x.dash[i])
+  ey.dash.hat[i] = y.dash[i] - gy.dash.hat(x.dash[i])
+}
+beta.hat.u = sum(ex.dash.hat*ey.dash.hat) / sum(ex.dash.hat^2)  ## estimation of beta
+beta.hat.u
+
+y.dash = y.dash-z.dash*beta.hat.u ## transformed non-missing response ##
 
 ## Now, to estimate the unknown regression function using ILLS method at x.dash in first step as follows. ##
 
@@ -181,6 +181,53 @@ for(i in 1:length(count.1))
 }
 
 y.complete<- replace(y.miss,which(is.na(y.miss)==T),m.hat.miss.arranged)   ## complete data on Y after imputation ##
+
+## Now, estimation of beta based on the complete semiparametric programs ##
+
+gy.hat<- function(t)  ## estimation of gy.hat = regression function of Y on X ##
+{
+  u<- (x-t)/h
+  m<- k(u)*y.complete
+  if(sum(k(u)!=0))
+  {
+    return((sum(m)/sum(k(u))))
+  }
+  else
+  {
+    return(0)
+  }
+}
+
+gx.hat<- function(t)  ## estimation of gy.hat = regression function of Y on Z ##
+{
+  u<- (x-t)/h
+  m<- k(u)*z
+  if(sum(k(u)!=0))
+  {
+    return((sum(m)/sum(k(u))))
+  }
+  else
+  {
+    return(0)
+  }
+}
+
+ex.hat<- c()  ## estimation of error in the regression function of Y on Z ##
+ey.hat<- c()  ## estimation of error in the regression function of Y on X ##
+for(i in 1:n)
+{
+  ex.hat[i] = z[i] - gx.hat(x[i])
+  ey.hat[i] = y.complete[i] - gy.hat(x[i])
+}
+
+beta.hat = sum(ex.hat*ey.hat) / sum(ex.hat^2)  ## estimation of beta
+beta.hat
+
+y.complete = y.complete-z*beta.hat ## transformed non-missing response ##
+
+estimated.beta.values = c(beta,beta.hat.u,beta.hat)
+
+estimated.beta.values
 
 ## Now, based on n paired observations (X, Y.complete), the regression function of the complete model needs to be estimated. ##
 
